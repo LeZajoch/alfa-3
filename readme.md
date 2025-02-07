@@ -69,19 +69,16 @@ This project implements a bank server according to the specified requirements. T
 ## Used Resources
 
 1. **Source Information and Inspiration:**
-   - Information and inspiration were gathered from a [ChatGPT conversation](https://example.com/chatgpt_conversation_link) (including prompts and responses).
+   - Information and inspiration were gathered from a [ChatGPT conversation](https://chatgpt.com/share/67a65db9-1dc4-800a-98c9-aebea12a8a92) (including prompts and responses).
    - Python Socket API Documentation: [Python Socket Documentation](https://docs.python.org/3/library/socket.html)
-
+   - Python Command Pattern tutorial: [YouTube](https://www.youtube.com/watch?v=bpOI2KijqN0&t=100s)
 2. **Reused Source Code:**
-   - **Project Alfa2:** Source code for a bank server from a previous project.  
-     [GitHub - Alfa2 Bank Server](https://github.com/yourusername/alfa2_bank_server)
-   - **Project Beta1:** The original implementation for JSON logging.  
-     [GitHub - Beta1 Logger](https://github.com/yourusername/beta1_logger)
+   - Mostly 16.2,3.py from reused code folder, method handle_client, log method, basis for command pattern but later edited it so not much from it has left.
 
 ## Additional Information
 
 - **Contact:**  
-  For further information or inquiries, please contact the project author.
+  For further information or inquiries, please contact me zajac@spsejecna.cz.
 
 - **Note:**  
   When testing proxy functionality, ensure that remote servers are running on the same port specified in your configuration and that there are no network or firewall restrictions blocking access.
