@@ -1,3 +1,9 @@
+"""
+This module loads the configuration, initializes the bank server,
+and listens for client connections. On shutdown (KeyboardInterrupt), it saves
+the current account data.
+"""
+
 import socket
 import threading
 import sys
@@ -7,7 +13,15 @@ from bank import Bank
 from logger import Logger
 from command_handler import BankServer
 
+
 def load_config():
+    """
+    Loads configuration parameters from 'config.json'.
+
+    Returns:
+        dict: A dictionary containing configuration parameters.
+              If the file is missing or cannot be parsed, default configuration is returned.
+    """
     config_file = "config.json"
     default_config = {"port": 65525}
     if os.path.exists(config_file):
@@ -20,7 +34,15 @@ def load_config():
         config = default_config
     return config
 
+
 def main():
+    """
+    Main entry point for the bank server application.
+
+    Loads the configuration, initializes the bank, logger, and bank server,
+    sets up the server socket, and accepts incoming client connections.
+    On KeyboardInterrupt, account data is saved and the server shuts down.
+    """
     config = load_config()
     port = config.get("port", 65525)
 
@@ -33,9 +55,8 @@ def main():
     # Automatically obtain local IP address as bank code.
     bank_code = socket.gethostbyname(socket.gethostname())
 
-    # for purposes of zerotier manual ip setup
-    # bank_code = config.get("ip", 65525)
-
+    # For purposes of manual IP setup (e.g. ZeroTier), you could override bank_code:
+    # bank_code = config.get("ip", bank_code)
 
     bank = Bank(bank_code)
     # Load saved account data if available.
@@ -58,6 +79,7 @@ def main():
         bank.save_data()
         server_socket.close()
         sys.exit(0)
+
 
 if __name__ == '__main__':
     main()
