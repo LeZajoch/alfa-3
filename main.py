@@ -33,11 +33,15 @@ def main():
     # Automatically obtain local IP address as bank code.
     bank_code = socket.gethostbyname(socket.gethostname())
 
+    # for purposes of zerotier manual ip setup
+    # bank_code = config.get("ip", 65525)
+
+
     bank = Bank(bank_code)
     # Load saved account data if available.
     bank.load_data()
     logger = Logger()
-    bank_server = BankServer(bank, logger)
+    bank_server = BankServer(bank, logger, response_timeout=5, port=port)
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

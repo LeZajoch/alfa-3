@@ -1,5 +1,6 @@
 import concurrent.futures
 import ipaddress
+import socket
 
 
 # --- Exception and validation functions ---
@@ -23,17 +24,35 @@ def validate_number(number):
     return 0 <= number <= 9223372036854775807
 
 
-# --- Bank command implementations (Command Pattern) ---
+# --- Proxy functionality ---
+def proxy_command(remote_ip, command, port):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((remote_ip, port))
+        s.sendall((command + "\r\n").encode("utf-8"))
+        response = ""
+        while not response.endswith("\r\n"):
+            data = s.recv(1024).decode("utf-8")
+            if not data:
+                break
+            response += data
+        s.close()
+        return response.strip()
+    except Exception as e:
+        return f"ER PROXY ERROR: {str(e)}"
+
+
+# --- Bank command implementations ---
 class BaseCommand:
     command_code = ""
 
-    def execute(self, args, client_ip, bank, logger):
+    def execute(self, args, client_ip, bank, logger, proxy_port):
         raise NotImplementedError()
 
 class HELPCommand(BaseCommand):
     command_code = "HELP"
 
-    def execute(self, args, client_ip, bank, logger):
+    def execute(self, args, client_ip, bank, logger, proxy_port):
         help_message = (
             "Available Commands:\r\n"
             "BC - returns bank code\r\n"
@@ -48,11 +67,10 @@ class HELPCommand(BaseCommand):
         return help_message
 
 
-
 class BCCommand(BaseCommand):
     command_code = "BC"
 
-    def execute(self, args, client_ip, bank, logger):
+    def execute(self, args, client_ip, bank, logger, proxy_port):
         if len(args) != 1:
             raise CommandError("INVALID NUMBER OF ARGUMENTS FOR BC")
         logger.log("INFO", client_ip, " ".join(args))
@@ -62,7 +80,7 @@ class BCCommand(BaseCommand):
 class ACCommand(BaseCommand):
     command_code = "AC"
 
-    def execute(self, args, client_ip, bank, logger):
+    def execute(self, args, client_ip, bank, logger, proxy_port):
         if len(args) != 1:
             raise CommandError("INVALID NUMBER OF ARGUMENTS FOR AC")
         try:
@@ -76,7 +94,7 @@ class ACCommand(BaseCommand):
 class ADCommand(BaseCommand):
     command_code = "AD"
 
-    def execute(self, args, client_ip, bank, logger):
+    def execute(self, args, client_ip, bank, logger, proxy_port):
         if len(args) != 3:
             raise CommandError("ACCOUNT NUMBER AND AMOUNT ARE NOT IN THE CORRECT FORMAT.")
         account_info = args[1]
@@ -84,13 +102,14 @@ class ADCommand(BaseCommand):
         if "/" not in account_info:
             raise CommandError("ACCOUNT NUMBER AND AMOUNT ARE NOT IN THE CORRECT FORMAT.")
         account_num_str, account_bank = account_info.split("/")
+        if account_bank != bank.bank_code:
+            command_str = " ".join(args)
+            return proxy_command(account_bank, command_str, proxy_port)
         try:
             account_number = int(account_num_str)
         except ValueError:
             raise CommandError("ACCOUNT NUMBER AND AMOUNT ARE NOT IN THE CORRECT FORMAT.")
         if not validate_account_number(account_number):
-            raise CommandError("ACCOUNT NUMBER AND AMOUNT ARE NOT IN THE CORRECT FORMAT.")
-        if account_bank != bank.bank_code:
             raise CommandError("ACCOUNT NUMBER AND AMOUNT ARE NOT IN THE CORRECT FORMAT.")
         try:
             amount = int(amount_str)
@@ -106,7 +125,7 @@ class ADCommand(BaseCommand):
 class AWCommand(BaseCommand):
     command_code = "AW"
 
-    def execute(self, args, client_ip, bank, logger):
+    def execute(self, args, client_ip, bank, logger, proxy_port):
         if len(args) != 3:
             raise CommandError("ACCOUNT NUMBER AND AMOUNT ARE NOT IN THE CORRECT FORMAT.")
         account_info = args[1]
@@ -114,13 +133,14 @@ class AWCommand(BaseCommand):
         if "/" not in account_info:
             raise CommandError("ACCOUNT NUMBER AND AMOUNT ARE NOT IN THE CORRECT FORMAT.")
         account_num_str, account_bank = account_info.split("/")
+        if account_bank != bank.bank_code:
+            command_str = " ".join(args)
+            return proxy_command(account_bank, command_str, proxy_port)
         try:
             account_number = int(account_num_str)
         except ValueError:
             raise CommandError("ACCOUNT NUMBER AND AMOUNT ARE NOT IN THE CORRECT FORMAT.")
         if not validate_account_number(account_number):
-            raise CommandError("ACCOUNT NUMBER AND AMOUNT ARE NOT IN THE CORRECT FORMAT.")
-        if account_bank != bank.bank_code:
             raise CommandError("ACCOUNT NUMBER AND AMOUNT ARE NOT IN THE CORRECT FORMAT.")
         try:
             amount = int(amount_str)
@@ -142,20 +162,21 @@ class AWCommand(BaseCommand):
 class ABCommand(BaseCommand):
     command_code = "AB"
 
-    def execute(self, args, client_ip, bank, logger):
+    def execute(self, args, client_ip, bank, logger, proxy_port):
         if len(args) != 2:
             raise CommandError("THE ACCOUNT NUMBER FORMAT IS NOT CORRECT.")
         account_info = args[1]
         if "/" not in account_info:
             raise CommandError("THE ACCOUNT NUMBER FORMAT IS NOT CORRECT.")
         account_num_str, account_bank = account_info.split("/")
+        if account_bank != bank.bank_code:
+            command_str = " ".join(args)
+            return proxy_command(account_bank, command_str, proxy_port)
         try:
             account_number = int(account_num_str)
         except ValueError:
             raise CommandError("THE ACCOUNT NUMBER FORMAT IS NOT CORRECT.")
         if not validate_account_number(account_number):
-            raise CommandError("THE ACCOUNT NUMBER FORMAT IS NOT CORRECT.")
-        if account_bank != bank.bank_code:
             raise CommandError("THE ACCOUNT NUMBER FORMAT IS NOT CORRECT.")
         balance = bank.get_balance(account_number)
         logger.log("INFO", client_ip, " ".join(args))
@@ -165,20 +186,20 @@ class ABCommand(BaseCommand):
 class ARCommand(BaseCommand):
     command_code = "AR"
 
-    def execute(self, args, client_ip, bank, logger):
+    def execute(self, args, client_ip, bank, logger, proxy_port):
         if len(args) != 2:
             raise CommandError("THE ACCOUNT NUMBER FORMAT IS NOT CORRECT.")
         account_info = args[1]
         if "/" not in account_info:
             raise CommandError("THE ACCOUNT NUMBER FORMAT IS NOT CORRECT.")
         account_num_str, account_bank = account_info.split("/")
+        if account_bank != bank.bank_code:
+            raise CommandError("THE ACCOUNT NUMBER FORMAT IS NOT CORRECT.")
         try:
             account_number = int(account_num_str)
         except ValueError:
             raise CommandError("THE ACCOUNT NUMBER FORMAT IS NOT CORRECT.")
         if not validate_account_number(account_number):
-            raise CommandError("THE ACCOUNT NUMBER FORMAT IS NOT CORRECT.")
-        if account_bank != bank.bank_code:
             raise CommandError("THE ACCOUNT NUMBER FORMAT IS NOT CORRECT.")
         try:
             bank.remove_account(account_number)
@@ -191,7 +212,7 @@ class ARCommand(BaseCommand):
 class BACommand(BaseCommand):
     command_code = "BA"
 
-    def execute(self, args, client_ip, bank, logger):
+    def execute(self, args, client_ip, bank, logger, proxy_port):
         if len(args) != 1:
             raise CommandError("INVALID NUMBER OF ARGUMENTS FOR BA")
         total = bank.get_total_amount()
@@ -202,7 +223,7 @@ class BACommand(BaseCommand):
 class BNCommand(BaseCommand):
     command_code = "BN"
 
-    def execute(self, args, client_ip, bank, logger):
+    def execute(self, args, client_ip, bank, logger, proxy_port):
         if len(args) != 1:
             raise CommandError("INVALID NUMBER OF ARGUMENTS FOR BN")
         count = bank.get_client_count()
@@ -210,7 +231,7 @@ class BNCommand(BaseCommand):
         return f"BN {count}"
 
 
-# Register bank commands.
+# bank commands .
 COMMANDS = {
     "HELP": HELPCommand(),
     "BC": BCCommand(),
@@ -224,7 +245,7 @@ COMMANDS = {
 }
 
 
-def handle_bank_command(command, client_ip, bank, logger):
+def handle_bank_command(command, client_ip, bank, logger, proxy_port):
     parts = command.split()
     if not parts:
         logger.log("ER", client_ip, command, "INVALID COMMAND")
@@ -235,7 +256,7 @@ def handle_bank_command(command, client_ip, bank, logger):
         logger.log("ER", client_ip, command, "UNKNOWN COMMAND")
         return "ER UNKNOWN COMMAND"
     try:
-        result = cmd_instance.execute(parts, client_ip, bank, logger)
+        result = cmd_instance.execute(parts, client_ip, bank, logger, proxy_port)
         return result
     except CommandError as ce:
         error_message = str(ce)
@@ -243,9 +264,9 @@ def handle_bank_command(command, client_ip, bank, logger):
         return f"ER {error_message}"
 
 
-def process_bank_command(command, client_ip, bank, logger, response_timeout):
+def process_bank_command(command, client_ip, bank, logger, response_timeout, proxy_port):
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(handle_bank_command, command, client_ip, bank, logger)
+        future = executor.submit(handle_bank_command, command, client_ip, bank, logger, proxy_port)
         try:
             result = future.result(timeout=response_timeout)
             # Save data after each operation.
@@ -256,12 +277,13 @@ def process_bank_command(command, client_ip, bank, logger, response_timeout):
             return "ER TIMEOUT PROCESSING COMMAND"
 
 
-# --- BankServer class – handles client connections using bank commands only ---
+
 class BankServer:
-    def __init__(self, bank, logger, response_timeout=5):
+    def __init__(self, bank, logger, response_timeout, port):
         self.bank = bank
         self.logger = logger
         self.response_timeout = response_timeout
+        self.port = port
         self.clients = []
 
     def process_command(self, command, client_socket):
@@ -269,14 +291,14 @@ class BankServer:
             client_ip = client_socket.getpeername()[0]
         except Exception:
             client_ip = "0.0.0.0"
-        return process_bank_command(command, client_ip, self.bank, self.logger, self.response_timeout)
+        return process_bank_command(command, client_ip, self.bank, self.logger, self.response_timeout, self.port)
 
     def handle_client(self, client_socket):
         self.clients.append(client_socket)
-        try:
-            client_socket.send("WELCOME TO THE BANK SERVER!\r\n".encode("utf-8"))
-        except Exception:
-            pass
+        # try:
+        #     client_socket.send("WELCOME TO THE BANK SERVER!\r\n".encode("utf-8"))
+        # except Exception:
+        #     pass
         buffer = ""
         while True:
             try:
@@ -286,9 +308,8 @@ class BankServer:
                 buffer += data
                 while "\r\n" in buffer:
                     command, buffer = buffer.split("\r\n", 1)
-                    # Convert input to uppercase.
                     command = command.strip().upper()
-                    print(f"Received command: {command}")
+                    print(f"RECEIVED COMMAND: {command}")
                     response = self.process_command(command, client_socket)
                     if response:
                         client_socket.send((response + "\r\n").encode("utf-8"))
