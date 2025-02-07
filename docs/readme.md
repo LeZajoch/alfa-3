@@ -39,7 +39,7 @@ This project implements a bank server according to the specified requirements. T
 ## How to Run the Application
 
 1. **Configuration:**
-   - Edit the `config.json` file (located in the root directory) to set the port (default: 65525). For example, the file should contain:
+   - Edit the `config.json` file (located in the src directory) to set the port (default: 65525). For example, the file should contain:
      ```json
      {
        "port": 65525
@@ -48,6 +48,7 @@ This project implements a bank server according to the specified requirements. T
 
 2. **Starting the Server:**
    - Ensure that Python 3 is installed.
+   - Ensure you are in src folder
    - Run the application from the command line:
      ```
      python main.py
